@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Soccer Game</title>
+    <title>Enhanced Soccer Game with Bomb Types</title>
     <style>
         #gameContainer {
             width: 100vw;
@@ -40,7 +40,11 @@
             justify-content: center;
         }
 
-        #bombButton {
+        .freeze-bomb {
+            background-color: blue;
+        }
+
+        #bombButton, #freezeBombButton {
             position: absolute;
             top: 20px;
             left: 20px;
@@ -52,7 +56,12 @@
             cursor: pointer;
         }
 
-        #bombButton.bomb-mode {
+        #freezeBombButton {
+            top: 70px; /* Adjusted to position below the first button */
+            background-color: blue;
+        }
+
+        .bomb-mode {
             background-color: green;
             background-image: none;
         }
@@ -60,7 +69,8 @@
 </head>
 <body>
     <div id="gameContainer">
-        <button id="bombButton">Bomb Mode OFF</button>
+        <button id="bombButton">Timed Bomb Mode OFF</button>
+        <button id="freezeBombButton">Freeze Bomb Mode OFF</button>
     </div>
     <script>
         const gravity = 0.5; // Gravity constant
@@ -68,21 +78,41 @@
         const friction = 0.98; // Horizontal movement slow down factor
         const objects = []; // Array to store all balls and bombs
         let bombMode = false; // Indicates if bomb mode is active
+        let freezeBombMode = false; // Indicates if freeze bomb mode is active
 
         document.getElementById('bombButton').addEventListener('click', function() {
             bombMode = !bombMode;
             if (bombMode) {
                 this.classList.add('bomb-mode');
-                this.textContent = 'Bomb Mode ON';
+                this.textContent = 'Timed Bomb Mode ON';
+                freezeBombMode = false; // Turn off freeze bomb mode
+                document.getElementById('freezeBombButton').classList.remove('bomb-mode');
+                document.getElementById('freezeBombButton').textContent = 'Freeze Bomb Mode OFF';
             } else {
                 this.classList.remove('bomb-mode');
-                this.textContent = 'Bomb Mode OFF';
+                this.textContent = 'Timed Bomb Mode OFF';
+            }
+        });
+
+        document.getElementById('freezeBombButton').addEventListener('click', function() {
+            freezeBombMode = !freezeBombMode;
+            if (freezeBombMode) {
+                this.classList.add('bomb-mode');
+                this.textContent = 'Freeze Bomb Mode ON';
+                bombMode = false; // Turn off timed bomb mode
+                document.getElementById('bombButton').classList.remove('bomb-mode');
+                document.getElementById('bombButton').textContent = 'Timed Bomb Mode OFF';
+            } else {
+                this.classList.remove('bomb-mode');
+                this.textContent = 'Freeze Bomb Mode OFF';
             }
         });
 
         document.getElementById('gameContainer').addEventListener('click', function(event) {
             if (bombMode) {
                 createBomb(event.clientX, event.clientY);
+            } else if (freezeBombMode) {
+                createFreezeBomb(event.clientX, event.clientY);
             } else {
                 createBall(event.clientX, event.clientY);
             }
@@ -186,7 +216,93 @@
             const bombObject = { element: bomb, posX, posY, velocityX, velocityY, type: 'bomb' };
             objects.push(bombObject);
 
-            setTimeout(() => explode(bombObject), 2000); // Set timer for 2 seconds
+            setTimeout (() => explode(bombObject), 2000); // Set timer for 2 seconds
+
+            function update() {
+                bombObject.velocityY += gravity; // Apply gravity to vertical velocity
+                bombObject.posY += bombObject.velocityY; // Update vertical position
+                bombObject.posX += bombObject.velocityX; // Update horizontal position
+                bombObject.velocityX *= friction; // Apply friction
+
+                // Collision detection with walls
+                if (bombObject.posY >= window.innerHeight - 50) { // Bottom wall
+                    bombObject.posY = window.innerHeight - 50;
+                    bombObject.velocityY *= -bounceFactor;
+                }
+                if (bombObject.posX <= 0) { // Left wall
+                    bombObject.posX = 0;
+                    bombObject.velocityX *= -bounceFactor;
+                }
+                if (bombObject.posX >= window.innerWidth - 50) { // Right wall
+                    bombObject.posX = window.innerWidth - 50;
+                    bombObject.velocityX *= -bounceFactor;
+                }
+
+                bombObject.element.style.left = `${bombObject.posX}px`; // Apply updated position
+                bombObject.element.style.top = `${bombObject.posY}px`;
+
+                // Check for collisions with other objects
+                for (let otherObject of objects) {
+                    if (otherObject === bombObject) continue;
+                    let dx = otherObject.posX - bombObject.posX;
+                    let dy = otherObject.posY - bombObject.posY;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 50) { // Collision detected
+                        let angle = Math.atan2(dy, dx);
+                        let sin = Math.sin(angle);
+                        let cos = Math.cos(angle);
+
+                        // Rotate velocities
+                        let vx1 = cos * bombObject.velocityX + sin * bombObject.velocityY;
+                        let vy1 = cos * bombObject.velocityY - sin * bombObject.velocityX;
+                        let vx2 = cos * otherObject.velocityX + sin * otherObject.velocityY;
+                        let vy2 = cos * otherObject.velocityY - sin * otherObject.velocityX;
+
+                        // Swap velocities
+                        let vxTemp = vx1;
+                        vx1 = vx2;
+                        vx2 = vxTemp;
+
+                        // Rotate velocities back
+                        bombObject.velocityX = cos * vx1 - sin * vy1;
+                        bombObject.velocityY = cos * vy1 + sin * vx1;
+                        otherObject.velocityX = cos * vx2 - sin * vy2;
+                        otherObject.velocityY = cos * vy2 + sin * vx2;
+
+                        // Separate objects to prevent sticking
+                        let overlap = (50 - distance) / 2;
+                        bombObject.posX -= overlap * cos;
+                        bombObject.posY -= overlap * sin;
+                        otherObject.posX += overlap * cos;
+                        otherObject.posY += overlap * sin;
+                    }
+                }
+
+                if (Math.abs(bombObject.velocityY) > 0.01 || Math.abs(bombObject.velocityX) > 0.01) {
+                    requestAnimationFrame(update); // Continue animation if moving
+                }
+            }
+
+            gameContainer.appendChild(bomb);
+            requestAnimationFrame(update);
+        }
+
+        function createFreezeBomb(x, y) {
+            const bomb = document.createElement('div');
+            bomb.className = 'bomb freeze-bomb';
+            bomb.textContent = 'F';
+            bomb.style.left = `${x - 25}px`; // Center the bomb on click
+            bomb.style.top = `${y - 25}px`; // Center the bomb on click
+
+            let posX = x - 25;
+            let posY = y - 25;
+            let velocityX = (Math.random() - 0.5) * 10; // Random initial horizontal velocity
+            let velocityY = (Math.random() - 0.5) * 20; // Random initial vertical velocity
+
+            const bombObject = { element: bomb, posX, posY, velocityX, velocityY, type: 'freeze-bomb' };
+            objects.push(bombObject);
+
+            setTimeout(() => explodeFreeze(bombObject), 2000); // Set timer for 2 seconds
 
             function update() {
                 bombObject.velocityY += gravity; // Apply gravity to vertical velocity
@@ -286,6 +402,32 @@
                             }, 500);
                         }, Math.random() * 1000); // Random delay before disappearing
                     }
+                }
+            });
+        }
+
+        function explodeFreeze(bombObject) {
+            const bombX = bombObject.posX + 25;
+            const bombY = bombObject.posY + 25;
+            const freezeRadius = 200; // Freeze radius
+
+            bombObject.element.remove();
+
+            objects.forEach(obj => {
+                let dx = obj.posX + 25 - bombX; // Center of object and bomb
+                let dy = obj.posY + 25 - bombY;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < freezeRadius) { // If object is within freeze radius
+                    obj.velocityX = 0; // Stop object
+                    obj.velocityY = 0; // Stop object
+                    obj.element.style.transition = 'background-color 0.3s';
+                    obj.element.style.backgroundColor = 'lightblue'; // Change color to indicate freezing
+                    setTimeout(() => {
+                        obj.velocityX = (Math.random() - 0.5) * 10; // Resume random horizontal velocity
+                        obj.velocityY = (Math.random() - 0.5) * 20; // Resume random vertical velocity
+                        obj.element.style.backgroundColor = ''; // Revert color after freeze effect ends
+                    }, 2000); // Freeze duration of 2 seconds
                 }
             });
         }
