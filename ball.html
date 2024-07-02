@@ -1,436 +1,1111 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Enhanced Soccer Game with Bomb Types</title>
+
     <style>
+
         #gameContainer {
+
             width: 100vw;
+
             height: 100vh;
+
             position: relative;
+
             background-color: #76B947; /* Soccer field green */
+
             overflow: hidden; /* Prevents scrollbars */
+
         }
 
-        .ball, .bomb {
+
+
+        .ball, .bomb, .stick {
+
             position: absolute;
+
             width: 50px; /* Ensure ball and bomb are circles */
+
             height: 50px; /* Ensure ball and bomb are circles */
+
             border-radius: 50%; /* Ensure ball and bomb are circles */
+
             will-change: transform; /* Optimizes animations */
+
         }
+
+
 
         .ball {
+
             background: radial-gradient(circle at 35% 35%, black 12%, transparent 13%),
+
                         radial-gradient(circle at 65% 35%, black 12%, transparent 13%),
+
                         radial-gradient(circle at 35% 65%, black 12%, transparent 13%),
+
                         radial-gradient(circle at 65% 65%, black 12%, transparent 13%),
+
                         radial-gradient(circle at 50% 50%, white 49%, black 50%, black 51%, white 51%);
+
             background-size: 50px 50px;
+
         }
+
+
 
         .bomb {
+
             background-color: black;
+
             color: white;
+
             font-size: 20px;
+
             font-weight: bold;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
         }
+
+
 
         .freeze-bomb {
+
             background-color: blue;
+
         }
 
-        #bombButton, #freezeBombButton {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            padding: 10px 20px;
-            background-color: red;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+
+
+        .stick {
+
+            width: 100px; /* Stick width */
+
+            height: 10px; /* Stick height */
+
+            background-color: brown;
+
         }
+
+
+
+        #bombButton, #freezeBombButton, #clearButton {
+
+            position: absolute;
+
+            top: 20px;
+
+            left: 20px;
+
+            padding: 10px 20px;
+
+            background-color: red;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 5px;
+
+            cursor: pointer;
+
+        }
+
+
 
         #freezeBombButton {
+
             top: 70px; /* Adjusted to position below the first button */
+
             background-color: blue;
+
         }
+
+
+
+        #clearButton {
+
+            top: 120px; /* Adjusted to position below the second button */
+
+            background-color: purple;
+
+        }
+
+
 
         .bomb-mode {
+
             background-color: green;
+
             background-image: none;
+
         }
+
     </style>
+
 </head>
+
 <body>
+
     <div id="gameContainer">
+
         <button id="bombButton">Timed Bomb Mode OFF</button>
+
         <button id="freezeBombButton">Freeze Bomb Mode OFF</button>
+
+        <button id="clearButton">Clear Screen</button>
+
     </div>
+
     <script>
+
         const gravity = 0.5; // Gravity constant
-        const bounceFactor = 0.7; // Energy retained after bouncing
+
+         const bounceFactor = 0.7; // Energy retained after bouncing
+
         const friction = 0.98; // Horizontal movement slow down factor
+
         const objects = []; // Array to store all balls and bombs
+
+        const sticks = []; // Array to store all sticks
+
         let bombMode = false; // Indicates if bomb mode is active
+
         let freezeBombMode = false; // Indicates if freeze bomb mode is active
 
+
+
         document.getElementById('bombButton').addEventListener('click', function() {
+
             bombMode = !bombMode;
+
             if (bombMode) {
+
                 this.classList.add('bomb-mode');
+
                 this.textContent = 'Timed Bomb Mode ON';
+
                 freezeBombMode = false; // Turn off freeze bomb mode
+
                 document.getElementById('freezeBombButton').classList.remove('bomb-mode');
+
                 document.getElementById('freezeBombButton').textContent = 'Freeze Bomb Mode OFF';
+
             } else {
+
                 this.classList.remove('bomb-mode');
+
                 this.textContent = 'Timed Bomb Mode OFF';
+
             }
+
         });
+
+
 
         document.getElementById('freezeBombButton').addEventListener('click', function() {
+
             freezeBombMode = !freezeBombMode;
+
             if (freezeBombMode) {
+
                 this.classList.add('bomb-mode');
+
                 this.textContent = 'Freeze Bomb Mode ON';
+
                 bombMode = false; // Turn off timed bomb mode
+
                 document.getElementById('bombButton').classList.remove('bomb-mode');
+
                 document.getElementById('bombButton').textContent = 'Timed Bomb Mode OFF';
+
             } else {
+
                 this.classList.remove('bomb-mode');
+
                 this.textContent = 'Freeze Bomb Mode OFF';
+
             }
+
         });
+
+
+
+        document.getElementById('clearButton').addEventListener('click', function() {
+
+            clearScreen();
+
+        });
+
+
 
         document.getElementById('gameContainer').addEventListener('click', function(event) {
+
             if (bombMode) {
+
                 createBomb(event.clientX, event.clientY);
+
             } else if (freezeBombMode) {
+
                 createFreezeBomb(event.clientX, event.clientY);
+
             } else {
+
                 createBall(event.clientX, event.clientY);
+
             }
+
         });
 
+
+
         function createBall(x, y) {
+
+            if (isOverlapping(x, y)) return;
+
+
+
             const ball = document.createElement('div');
+
             ball.className = 'ball';
+
             ball.style.left = `${x - 25}px`; // Center the ball on click
+
             ball.style.top = `${y - 25}px`; // Center the ball on click
 
+
+
             let posX = x - 25;
+
             let posY = y - 25;
+
             let velocityX = (Math.random() - 0.5) * 10; // Random initial horizontal velocity
+
             let velocityY = (Math.random() - 0.5) * 20; // Random initial vertical velocity
+
+
 
             const ballObject = { element: ball, posX, posY, velocityX, velocityY, type: 'ball' };
+
             objects.push(ballObject);
 
+
+
             function update() {
+
                 ballObject.velocityY += gravity; // Apply gravity to vertical velocity
+
                 ballObject.posY += ballObject.velocityY; // Update vertical position
+
                 ballObject.posX += ballObject.velocityX; // Update horizontal position
+
                 ballObject.velocityX *= friction; // Apply friction
 
+
+
                 // Collision detection with walls
+
                 if (ballObject.posY >= window.innerHeight - 50) { // Bottom wall
+
                     ballObject.posY = window.innerHeight - 50;
+
                     ballObject.velocityY *= -bounceFactor;
+
                 }
+
                 if (ballObject.posX <= 0) { // Left wall
+
                     ballObject.posX = 0;
+
                     ballObject.velocityX *= -bounceFactor;
+
                 }
+
                 if (ballObject.posX >= window.innerWidth - 50) { // Right wall
+
                     ballObject.posX = window.innerWidth - 50;
+
                     ballObject.velocityX *= -bounceFactor;
+
                 }
+
+
 
                 ballObject.element.style.left = `${ballObject.posX}px`; // Apply updated position
+
                 ballObject.element.style.top = `${ballObject.posY}px`;
 
+
+
                 // Check for collisions with other objects
+
                 for (let otherObject of objects) {
+
                     if (otherObject === ballObject) continue;
+
                     let dx = otherObject.posX - ballObject.posX;
+
                     let dy = otherObject.posY - ballObject.posY;
+
                     let distance = Math.sqrt(dx * dx + dy * dy);
+
                     if (distance < 50) { // Collision detected
+
                         let angle = Math.atan2(dy, dx);
+
                         let sin = Math.sin(angle);
+
                         let cos = Math.cos(angle);
 
+
+
                         // Rotate velocities
+
                         let vx1 = cos * ballObject.velocityX + sin * ballObject.velocityY;
+
                         let vy1 = cos * ballObject.velocityY - sin * ballObject.velocityX;
+
                         let vx2 = cos * otherObject.velocityX + sin * otherObject.velocityY;
+
                         let vy2 = cos * otherObject.velocityY - sin * otherObject.velocityX;
 
+
+
                         // Swap velocities
+
                         let vxTemp = vx1;
+
                         vx1 = vx2;
+
                         vx2 = vxTemp;
 
+
+
                         // Rotate velocities back
+
                         ballObject.velocityX = cos * vx1 - sin * vy1;
+
                         ballObject.velocityY = cos * vy1 + sin * vx1;
+
                         otherObject.velocityX = cos * vx2 - sin * vy2;
+
                         otherObject.velocityY = cos * vy2 + sin * vx2;
 
+
+
                         // Separate objects to prevent sticking
+
                         let overlap = (50 - distance) / 2;
+
                         ballObject.posX -= overlap * cos;
+
                         ballObject.posY -= overlap * sin;
+
                         otherObject.posX += overlap * cos;
+
                         otherObject.posY += overlap * sin;
+
                     }
+
                 }
+
+
+
+                // Check for collisions with sticks
+
+                for (let stick of sticks) {
+
+                    if (isCollidingWithStick(ballObject, stick)) {
+
+                        ballObject.velocityY *= -bounceFactor; // Reverse the Y velocity for a bounce effect
+
+                        ballObject.posY = stick.y - 50; // Position the ball above the stick
+
+                    }
+
+                }
+
+
 
                 if (Math.abs(ballObject.velocityY) > 0.01 || Math.abs(ballObject.velocityX) > 0.01) {
+
                     requestAnimationFrame(update); // Continue animation if moving
+
                 }
+
             }
+
+
 
             gameContainer.appendChild(ball);
+
             requestAnimationFrame(update);
+
         }
+
+
 
         function createBomb(x, y) {
+
+            if (isOverlapping(x, y)) return;
+
+
+
             const bomb = document.createElement('div');
+
             bomb.className = 'bomb';
+
             bomb.textContent = 'B';
+
             bomb.style.left = `${x - 25}px`; // Center the bomb on click
+
             bomb.style.top = `${y - 25}px`; // Center the bomb on click
 
+
+
             let posX = x - 25;
+
             let posY = y - 25;
+
             let velocityX = (Math.random() - 0.5) * 10; // Random initial horizontal velocity
+
             let velocityY = (Math.random() - 0.5) * 20; // Random initial vertical velocity
+
+
 
             const bombObject = { element: bomb, posX, posY, velocityX, velocityY, type: 'bomb' };
+
             objects.push(bombObject);
 
-            setTimeout (() => explode(bombObject), 2000); // Set timer for 2 seconds
+
+
+            setTimeout(() => explode(bombObject), 2000); // Set timer for 2 seconds
+
+
 
             function update() {
+
                 bombObject.velocityY += gravity; // Apply gravity to vertical velocity
+
                 bombObject.posY += bombObject.velocityY; // Update vertical position
+
                 bombObject.posX += bombObject.velocityX; // Update horizontal position
+
                 bombObject.velocityX *= friction; // Apply friction
 
+
+
                 // Collision detection with walls
+
                 if (bombObject.posY >= window.innerHeight - 50) { // Bottom wall
+
                     bombObject.posY = window.innerHeight - 50;
+
                     bombObject.velocityY *= -bounceFactor;
+
                 }
+
                 if (bombObject.posX <= 0) { // Left wall
+
                     bombObject.posX = 0;
+
                     bombObject.velocityX *= -bounceFactor;
+
                 }
+
                 if (bombObject.posX >= window.innerWidth - 50) { // Right wall
+
                     bombObject.posX = window.innerWidth - 50;
+
                     bombObject.velocityX *= -bounceFactor;
+
                 }
+
+
 
                 bombObject.element.style.left = `${bombObject.posX}px`; // Apply updated position
+
                 bombObject.element.style.top = `${bombObject.posY}px`;
 
+
+
                 // Check for collisions with other objects
+
                 for (let otherObject of objects) {
+
                     if (otherObject === bombObject) continue;
+
                     let dx = otherObject.posX - bombObject.posX;
+
                     let dy = otherObject.posY - bombObject.posY;
+
                     let distance = Math.sqrt(dx * dx + dy * dy);
+
                     if (distance < 50) { // Collision detected
+
                         let angle = Math.atan2(dy, dx);
+
                         let sin = Math.sin(angle);
+
                         let cos = Math.cos(angle);
 
+
+
                         // Rotate velocities
+
                         let vx1 = cos * bombObject.velocityX + sin * bombObject.velocityY;
+
                         let vy1 = cos * bombObject.velocityY - sin * bombObject.velocityX;
+
                         let vx2 = cos * otherObject.velocityX + sin * otherObject.velocityY;
+
                         let vy2 = cos * otherObject.velocityY - sin * otherObject.velocityX;
 
+
+
                         // Swap velocities
+
                         let vxTemp = vx1;
+
                         vx1 = vx2;
+
                         vx2 = vxTemp;
 
+
+
                         // Rotate velocities back
+
                         bombObject.velocityX = cos * vx1 - sin * vy1;
+
                         bombObject.velocityY = cos * vy1 + sin * vx1;
+
                         otherObject.velocityX = cos * vx2 - sin * vy2;
+
                         otherObject.velocityY = cos * vy2 + sin * vx2;
 
+
+
                         // Separate objects to prevent sticking
+
                         let overlap = (50 - distance) / 2;
+
                         bombObject.posX -= overlap * cos;
+
                         bombObject.posY -= overlap * sin;
+
                         otherObject.posX += overlap * cos;
+
                         otherObject.posY += overlap * sin;
+
                     }
+
                 }
+
+
 
                 if (Math.abs(bombObject.velocityY) > 0.01 || Math.abs(bombObject.velocityX) > 0.01) {
+
                     requestAnimationFrame(update); // Continue animation if moving
+
                 }
+
             }
 
+
+
             gameContainer.appendChild(bomb);
+
             requestAnimationFrame(update);
+
         }
 
+
+
         function createFreezeBomb(x, y) {
+
+            if (isOverlapping(x, y)) return;
+
+
+
             const bomb = document.createElement('div');
+
             bomb.className = 'bomb freeze-bomb';
+
             bomb.textContent = 'F';
+
             bomb.style.left = `${x - 25}px`; // Center the bomb on click
+
             bomb.style.top = `${y - 25}px`; // Center the bomb on click
 
+
+
             let posX = x - 25;
+
             let posY = y - 25;
+
             let velocityX = (Math.random() - 0.5) * 10; // Random initial horizontal velocity
+
             let velocityY = (Math.random() - 0.5) * 20; // Random initial vertical velocity
 
+
+
             const bombObject = { element: bomb, posX, posY, velocityX, velocityY, type: 'freeze-bomb' };
+
             objects.push(bombObject);
+
+
 
             setTimeout(() => explodeFreeze(bombObject), 2000); // Set timer for 2 seconds
 
+
+
             function update() {
+
                 bombObject.velocityY += gravity; // Apply gravity to vertical velocity
+
                 bombObject.posY += bombObject.velocityY; // Update vertical position
+
                 bombObject.posX += bombObject.velocityX; // Update horizontal position
+
                 bombObject.velocityX *= friction; // Apply friction
 
+
+
                 // Collision detection with walls
+
                 if (bombObject.posY >= window.innerHeight - 50) { // Bottom wall
+
                     bombObject.posY = window.innerHeight - 50;
+
                     bombObject.velocityY *= -bounceFactor;
+
                 }
+
                 if (bombObject.posX <= 0) { // Left wall
+
                     bombObject.posX = 0;
+
                     bombObject.velocityX *= -bounceFactor;
+
                 }
+
                 if (bombObject.posX >= window.innerWidth - 50) { // Right wall
+
                     bombObject.posX = window.innerWidth - 50;
+
                     bombObject.velocityX *= -bounceFactor;
+
                 }
+
+
 
                 bombObject.element.style.left = `${bombObject.posX}px`; // Apply updated position
+
                 bombObject.element.style.top = `${bombObject.posY}px`;
 
+
+
                 // Check for collisions with other objects
+
                 for (let otherObject of objects) {
+
                     if (otherObject === bombObject) continue;
+
                     let dx = otherObject.posX - bombObject.posX;
+
                     let dy = otherObject.posY - bombObject.posY;
+
                     let distance = Math.sqrt(dx * dx + dy * dy);
+
                     if (distance < 50) { // Collision detected
+
                         let angle = Math.atan2(dy, dx);
+
                         let sin = Math.sin(angle);
+
                         let cos = Math.cos(angle);
 
+
+
                         // Rotate velocities
+
                         let vx1 = cos * bombObject.velocityX + sin * bombObject.velocityY;
+
                         let vy1 = cos * bombObject.velocityY - sin * bombObject.velocityX;
+
                         let vx2 = cos * otherObject.velocityX + sin * otherObject.velocityY;
+
                         let vy2 = cos * otherObject.velocityY - sin * otherObject.velocityX;
 
+
+
                         // Swap velocities
+
                         let vxTemp = vx1;
+
                         vx1 = vx2;
+
                         vx2 = vxTemp;
 
+
+
                         // Rotate velocities back
+
                         bombObject.velocityX = cos * vx1 - sin * vy1;
+
                         bombObject.velocityY = cos * vy1 + sin * vx1;
+
                         otherObject.velocityX = cos * vx2 - sin * vy2;
+
                         otherObject.velocityY = cos * vy2 + sin * vx2;
 
+
+
                         // Separate objects to prevent sticking
+
                         let overlap = (50 - distance) / 2;
+
                         bombObject.posX -= overlap * cos;
+
                         bombObject.posY -= overlap * sin;
+
                         otherObject.posX += overlap * cos;
+
                         otherObject.posY += overlap * sin;
+
                     }
+
                 }
+
+
 
                 if (Math.abs(bombObject.velocityY) > 0.01 || Math.abs(bombObject.velocityX) > 0.01) {
+
                     requestAnimationFrame(update); // Continue animation if moving
+
                 }
+
             }
 
+
+
             gameContainer.appendChild(bomb);
+
             requestAnimationFrame(update);
+
         }
+
+
 
         function explode(bombObject) {
+
             const bombX = bombObject.posX + 25;
+
             const bombY = bombObject.posY + 25;
+
             const explosionRadius = Math.random() * 150 + 50; // Random explosion radius between 50 and 200
 
+
+
             bombObject.element.remove();
+
+
 
             objects.forEach((obj, index) => {
+
                 let dx = obj.posX + 25 - bombX; // Center of object and bomb
+
                 let dy = obj.posY + 25 - bombY;
+
                 let distance = Math.sqrt(dx * dx + dy * dy);
 
+
+
                 if (distance < explosionRadius) { // If object is within explosion radius
+
                     let angle = Math.atan2(dy, dx);
+
                     obj.velocityX += Math.cos(angle) * 20; // Apply stronger explosion force
+
                     obj.velocityY += Math.sin(angle) * 20; // Apply stronger explosion force
 
+
+
                     if (obj.type === 'ball') {
-                        // Randomly remove the ball after explosion with a dynamic effect
-                        setTimeout(() => {
+
+                        // Randomly remove the ball after explosion with
+
+                                                // Randomly remove the ball after explosion with a dynamic effect
+
+                                                setTimeout(() => {
+
                             obj.element.style.transition = 'transform 0.5s, opacity 0.5s';
+
                             obj.element.style.transform = 'scale(0)';
+
                             obj.element.style.opacity = '0';
+
                             setTimeout(() => {
+
                                 obj.element.remove();
+
                                 objects.splice(index, 1); // Remove ball from objects array
+
                             }, 500);
+
                         }, Math.random() * 1000); // Random delay before disappearing
+
                     }
+
                 }
+
             });
+
         }
 
+
+
         function explodeFreeze(bombObject) {
+
             const bombX = bombObject.posX + 25;
+
             const bombY = bombObject.posY + 25;
+
             const freezeRadius = 200; // Freeze radius
+
+
 
             bombObject.element.remove();
 
+
+
             objects.forEach(obj => {
+
                 let dx = obj.posX + 25 - bombX; // Center of object and bomb
+
                 let dy = obj.posY + 25 - bombY;
+
                 let distance = Math.sqrt(dx * dx + dy * dy);
 
+
+
                 if (distance < freezeRadius) { // If object is within freeze radius
+
                     obj.velocityX = 0; // Stop object
+
                     obj.velocityY = 0; // Stop object
+
                     obj.element.style.transition = 'background-color 0.3s';
+
                     obj.element.style.backgroundColor = 'lightblue'; // Change color to indicate freezing
+
                     setTimeout(() => {
+
                         obj.velocityX = (Math.random() - 0.5) * 10; // Resume random horizontal velocity
+
                         obj.velocityY = (Math.random() - 0.5) * 20; // Resume random vertical velocity
+
                         obj.element.style.backgroundColor = ''; // Revert color after freeze effect ends
+
                     }, 2000); // Freeze duration of 2 seconds
+
                 }
+
             });
+
         }
+
+
+
+        function clearScreen() {
+
+            objects.forEach((obj, index) => {
+
+                setTimeout(() => {
+
+                    obj.element.style.transition = 'transform 0.5s, opacity 0.5s';
+
+                    obj.element.style.transform = 'scale(0)';
+
+                    obj.element.style.opacity = '0';
+
+                    setTimeout(() => {
+
+                        obj.element.remove();
+
+                    }, 500);
+
+                }, Math.random() * 1000); // Random delay before disappearing
+
+            });
+
+            objects.length = 0;
+
+            setTimeout(showFireworks, 2000); // Show fireworks after clear screen
+
+        }
+
+
+
+        function isOverlapping(x, y) {
+
+            return objects.some(obj => {
+
+                let dx = obj.posX + 25 - x;
+
+                let dy = obj.posY + 25 - y;
+
+                return Math.sqrt(dx * dx + dy * dy) < 50;
+
+            });
+
+        }
+
+
+
+        function createStick(x, y) {
+
+            const stick = document.createElement('div');
+
+            stick.className = 'stick';
+
+            stick.style.left = `${x}px`;
+
+            stick.style.top = `${y}px`;
+
+
+
+            sticks.push({ element: stick, x: x, y: y });
+
+
+
+            gameContainer.appendChild(stick);
+
+        }
+
+
+
+        function isCollidingWithStick(ball, stick) {
+
+            return ball.posX + 25 > stick.x && ball.posX - 25 < stick.x + 100 &&
+
+                   ball.posY + 50 > stick.y && ball.posY < stick.y + 10;
+
+        }
+
+
+
+        function showFireworks() {
+
+            const fireworksContainer = document.createElement('div');
+
+            fireworksContainer.style.position = 'absolute';
+
+            fireworksContainer.style.top = '0';
+
+            fireworksContainer.style.left = '0';
+
+            fireworksContainer.style.width = '100%';
+
+            fireworksContainer.style.height = '100%';
+
+            fireworksContainer.style.pointerEvents = 'none';
+
+            gameContainer.appendChild(fireworksContainer);
+
+
+
+            let fireworks = [];
+
+            for (let i = 0; i < 20; i++) {
+
+                let firework = document.createElement('div');
+
+                firework.style.position = 'absolute';
+
+                firework.style.width = '10px';
+
+                firework.style.height = '10px';
+
+                firework.style.backgroundColor = getRandomColor();
+
+                firework.style.borderRadius = '50%';
+
+                firework.style.transition = 'transform 4s ease-out, opacity 4s ease-out';
+
+                fireworks.push(firework);
+
+                fireworksContainer.appendChild(firework);
+
+
+
+                setTimeout(() => {
+
+                    firework.style.transform = `translate(${Math.random() * window.innerWidth}px, ${Math.random() * window.innerHeight}px) scale(${Math.random() * 3 + 1})`;
+
+                    firework.style.opacity = '0';
+
+                }, 100);
+
+            }
+
+
+
+            setTimeout(() => {
+
+                fireworks.forEach(firework => firework.remove());
+
+                fireworksContainer.remove();
+
+            }, 4000);
+
+        }
+
+
+
+        function getRandomColor() {
+
+            const letters = '0123456789ABCDEF';
+
+            let color = '#';
+
+            for (let i = 0; i < 6; i++) {
+
+                color += letters[Math.floor(Math.random() * 16)];
+
+            }
+
+            return color;
+
+        }
+
+
+
+        // Example sticks
+
+        createStick(300, 300);
+
+        createStick(500, 500);
+
+        createStick(700, 200);
+
+
+
     </script>
+
 </body>
+
 </html>
